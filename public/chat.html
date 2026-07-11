@@ -1,0 +1,119 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ru">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=5">
+  <title>Tigrulya2000 — Чат</title>
+  <link rel="stylesheet" type="text/css" href="css/style.css">
+</head>
+<body onload="initChatPage();">
+
+<div class="page-wrap">
+
+  <div class="header-box">
+    <h1>★ Tigrulya2000 ★</h1>
+    <div class="subtitle">Общий текстовый чат</div>
+  </div>
+
+  <div class="nav-bar">
+    <a href="index.html">Главная</a> |
+    <a href="chat.html">Чат <span id="nav-pm-badge" class="nav-badge" style="display:none;"></span></a> |
+    <a href="friends.html">Друзья <span id="nav-requests-badge" class="nav-badge" style="display:none;"></span></a> |
+    <a href="profile.html">Профиль</a> |
+    <a href="settings.html">Оформление</a> |
+    <a href="#" onclick="doLogout(); return false;">Выход</a>
+  </div>
+
+  <div class="content-box">
+
+    <table class="chat-layout" cellpadding="0" cellspacing="0" border="0" width="100%">
+      <tr>
+        <td class="chat-messages-cell">
+
+          <div class="win-panel">
+            <div class="win-title">#general — Основной канал</div>
+
+            <div id="chat-log" class="chat-log">
+              <div class="chat-line"><span class="chat-text">*** Подключение к серверу...</span></div>
+            </div>
+
+            <div id="chat-error" class="error-msg" style="display:none;"></div>
+
+            <div id="reply-preview" class="reply-preview" style="display:none;">
+              <span id="reply-preview-text"></span>
+              <input type="button" id="reply-cancel-btn" value=" ✕ " class="btn btn-small" title="Отменить ответ">
+            </div>
+
+            <form id="chat-form" action="#" method="post">
+              <table class="chat-form-table" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td class="chat-input-cell">
+                    <input type="text" id="message-input" name="message" class="text-field chat-input-field" maxlength="500" autocomplete="off">
+                  </td>
+                  <td class="chat-submit-cell">
+                    <input type="submit" value=" Отправить " class="btn">
+                  </td>
+                </tr>
+              </table>
+            </form>
+          </div>
+
+        </td>
+        <td class="chat-sidebar-cell">
+
+          <div class="sidebar-panel">
+            <h3>Ваш профиль</h3>
+            <div class="user-badge" id="current-user">...</div>
+            <p style="margin:4px 0;">
+              <a href="profile.html">Профиль</a> |
+              <a href="settings.html">Оформление</a> |
+              <a href="friends.html">Друзья</a>
+            </p>
+            <input type="button" id="logout-btn" value=" Выйти " class="btn">
+          </div>
+
+          <div class="sidebar-panel">
+            <h3>Статистика сервера</h3>
+            <table cellpadding="2" cellspacing="0" width="100%">
+              <tr>
+                <td>Пользователей:</td>
+                <td align="right"><b id="stat-users">0</b></td>
+              </tr>
+              <tr>
+                <td>Сообщений:</td>
+                <td align="right"><b id="stat-messages">0</b></td>
+              </tr>
+              <tr>
+                <td>Онлайн:</td>
+                <td align="right"><b id="stat-online">0</b></td>
+              </tr>
+              <tr>
+                <td colspan="2"><small>активны за 5 мин.</small></td>
+              </tr>
+            </table>
+          </div>
+
+          <div class="sidebar-panel">
+            <h3>Подсказка</h3>
+            <p style="margin:0;">Сообщения обновляются автоматически каждую 1 секунду. Работает даже в IE 5.5!</p>
+            <p style="margin:6px 0 0 0;">Нажмите <b>[↩]</b> у сообщения, чтобы ответить на него.</p>
+          </div>
+
+        </td>
+      </tr>
+    </table>
+
+  </div>
+
+  <div class="footer-box">
+    © 2000-2026 Tigrulya2000 &nbsp;|&nbsp; Канал: #general
+  </div>
+
+</div>
+
+<script type="text/javascript" src="js/common.js"></script>
+<script type="text/javascript" src="js/theme.js"></script>
+<script type="text/javascript" src="js/chat.js"></script>
+</body>
+</html>

@@ -1,0 +1,89 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ru">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=5">
+  <title>Tigrulya2000 — Друзья</title>
+  <link rel="stylesheet" type="text/css" href="css/style.css">
+</head>
+<body onload="initFriendsPage();">
+
+<div class="page-wrap">
+
+  <div class="header-box">
+    <h1>★ Tigrulya2000 ★</h1>
+    <div class="subtitle">Друзья и поиск по PIN</div>
+  </div>
+
+  <div class="nav-bar">
+    <a href="chat.html">Чат <span id="nav-pm-badge" class="nav-badge" style="display:none;"></span></a> |
+    <a href="friends.html">Друзья <span id="nav-requests-badge" class="nav-badge" style="display:none;"></span></a> |
+    <a href="profile.html">Профиль</a> |
+    <a href="settings.html">Оформление</a> |
+    <a href="#" onclick="doLogout(); return false;">Выход</a>
+  </div>
+
+  <div class="content-box">
+
+    <div class="win-panel">
+      <div class="win-title">Ваш PIN</div>
+      <p>Ваш уникальный номер: <span class="pin-display" id="my-pin">--------</span></p>
+      <p><a href="profile.html">Настроить профиль</a></p>
+    </div>
+
+    <div class="win-panel">
+      <div class="win-title">Найти пользователя</div>
+
+      <div id="search-error" class="error-msg" style="display:none;"></div>
+
+      <form id="search-form" action="#" method="post">
+        <table class="form-table" cellpadding="0" cellspacing="0">
+          <tr>
+            <td class="label">PIN друга:</td>
+            <td>
+              <input type="text" id="pin-input" class="text-field pin-input" maxlength="8" autocomplete="off">
+              <input type="submit" value=" Найти " class="btn">
+            </td>
+          </tr>
+        </table>
+      </form>
+
+      <div id="found-profile" style="display:none;"></div>
+    </div>
+
+    <div class="win-panel">
+      <div class="win-title">Входящие заявки</div>
+      <div id="incoming-requests">
+        <p class="empty-note">Загрузка...</p>
+      </div>
+    </div>
+
+    <div class="win-panel">
+      <div class="win-title">Исходящие заявки</div>
+      <div id="outgoing-requests">
+        <p class="empty-note">Загрузка...</p>
+      </div>
+    </div>
+
+    <div class="win-panel">
+      <div class="win-title">Мои друзья</div>
+      <div class="user-badge" id="current-user">...</div>
+      <div id="friends-list">
+        <p class="empty-note">Загрузка...</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-box">
+    © 2000-2026 Tigrulya2000 &nbsp;|&nbsp; <a href="chat.html">В чат</a>
+  </div>
+
+</div>
+
+<script type="text/javascript" src="js/common.js"></script>
+<script type="text/javascript" src="js/theme.js"></script>
+<script type="text/javascript" src="js/friends.js"></script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html lang="ru">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=5">
+  <title>Tigrulya2000 — Регистрация</title>
+  <link rel="stylesheet" type="text/css" href="css/style.css">
+</head>
+<body onload="initRegisterPage();">
+
+<div class="page-wrap">
+
+  <div class="header-box">
+    <h1>★ Tigrulya2000 ★</h1>
+    <div class="subtitle">Регистрация нового пользователя</div>
+  </div>
+
+  <div class="nav-bar">
+    <a href="index.html">Главная</a> |
+    <a href="register.html">Регистрация</a> |
+    <a href="chat.html">Чат</a>
+  </div>
+
+  <div class="content-box">
+
+    <div class="win-panel">
+      <div class="win-title">Форма регистрации</div>
+
+      <div id="error-box" class="error-msg" style="display:none;"></div>
+      <div id="ok-box" class="ok-msg" style="display:none;"></div>
+
+      <form id="register-form" action="#" method="post">
+        <table class="form-table" cellpadding="0" cellspacing="0">
+          <tr>
+            <td class="label">Имя пользователя:</td>
+            <td>
+              <input type="text" id="username" name="username" class="text-field" maxlength="16" autocomplete="off">
+              <br><small>3-16 символов: буквы, цифры, _</small>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">Пароль:</td>
+            <td>
+              <input type="password" id="password" name="password" class="password-field" maxlength="32">
+              <br><small>От 4 до 32 символов</small>
+            </td>
+          </tr>
+          <tr>
+            <td class="label">Повтор пароля:</td>
+            <td><input type="password" id="password2" name="password2" class="password-field" maxlength="32"></td>
+          </tr>
+          <tr>
+            <td>&nbsp;</td>
+            <td>
+              <input type="submit" value=" Зарегистрироваться " class="btn">
+              &nbsp;
+              <a href="index.html">Уже есть аккаунт?</a>
+            </td>
+          </tr>
+        </table>
+      </form>
+    </div>
+
+    <div class="win-panel">
+      <div class="win-title">Правила</div>
+      <ul>
+        <li>Будьте вежливы с другими пользователями.</li>
+        <li>Не публикуйте личные данные.</li>
+        <li>Максимальная длина сообщения — 500 символов.</li>
+        <li>Администрация не несёт ответственности за содержание сообщений.</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <div class="footer-box">
+    © 2000-2026 Tigrulya2000 &nbsp;|&nbsp; <a href="index.html">На главную</a>
+  </div>
+
+</div>
+
+<script type="text/javascript" src="js/common.js"></script>
+<script type="text/javascript" src="js/auth.js"></script>
+</body>
+</html>
