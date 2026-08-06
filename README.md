@@ -1,4 +1,4 @@
-# Retro Messenger / Чат в стиле 2000-х
+<img width="434" height="411" alt="image" src="https://github.com/user-attachments/assets/6b5d009b-efe9-4b98-874a-9bd226f92ac0" /># Tigrulya2000 - Чат в стиле 2000-х
 
 Простое веб-приложение для общения в стиле ретро-интернета: регистрация, авторизация, общий чат, личные сообщения, друзья и профиль пользователя. Должен работать на Internet explorer 5.5+
 
@@ -25,15 +25,15 @@
 
 ## Требования
 
-- Node.js 18+
+- Node.js 22+
 - npm
 
 ## Установка
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone <ссылка-на-репозиторий>
-   cd <название-папки>
+   git clone https://github.com/Nikich103030/messenger-Tigrulya2000.git
+   cd messenger-Tigrulya2000
    ```
 
 2. Установите зависимости:
