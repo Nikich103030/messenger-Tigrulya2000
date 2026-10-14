@@ -2,6 +2,11 @@ var pmLastId = 0;
 var pmPollTimer = null;
 var pmFriendId = 0;
 var pmMyId = 0;
+var pmInitialLoaded = false;
+var pmPollInFlight = false;
+var pmPendingMessages = [];
+var pmMessages = [];
+var pmMessageIds = {};
 
 function initPmPage() {
   pmFriendId = parseInt(getQueryParam('id'), 10);
@@ -32,9 +37,16 @@ function bindLogoutBtn(id) {
 }
 
 function loadPmMessages(replace) {
+  if (!replace && (!pmInitialLoaded || pmPollInFlight)) {
+    return;
+  }
+
   var url = '/api/pm/' + pmFriendId;
   if (!replace && pmLastId > 0) {
     url += '?since=' + pmLastId;
+  }
+  if (!replace) {
+    pmPollInFlight = true;
   }
 
   apiRequest('GET', url, null, function(res) {
@@ -46,6 +58,12 @@ function loadPmMessages(replace) {
         window.setTimeout(function() {
           window.location.href = 'friends.html';
         }, 2000);
+      }
+      if (replace) {
+        pmInitialLoaded = true;
+        flushPendingPmMessages();
+      } else {
+        pmPollInFlight = false;
       }
       return;
     }
@@ -61,15 +79,26 @@ function loadPmMessages(replace) {
       }
     }
 
-    if (res.messages && res.messages.length > 0) {
+    if (res.messages) {
       renderPmMessages(res.messages, replace);
     } else if (replace) {
-      var log = $('pm-log');
-      if (log) {
-        log.innerHTML = '<div class="chat-line"><span class="chat-text">*** Начните переписку...</span></div>';
-      }
+      renderPmMessages([], true);
+    }
+
+    if (replace) {
+      pmInitialLoaded = true;
+      flushPendingPmMessages();
+    } else {
+      pmPollInFlight = false;
     }
   });
+}
+
+function flushPendingPmMessages() {
+  if (pmPendingMessages.length > 0) {
+    renderPmMessages(pmPendingMessages, false);
+    pmPendingMessages = [];
+  }
 }
 
 function startPmPolling() {
@@ -87,20 +116,41 @@ function renderPmMessages(messages, replace) {
     return;
   }
 
-  var html = replace ? '' : log.innerHTML;
+  var html = '';
   var i;
   var msg;
   var isMine;
+  var idKey;
 
-  if (replace && messages.length === 0) {
-    html = '<div class="chat-line"><span class="chat-text">*** Начните переписку...</span></div>';
+  if (replace) {
+    pmLastId = 0;
+    pmMessages = [];
+    pmMessageIds = {};
   }
 
   for (i = 0; i < messages.length; i++) {
     msg = messages[i];
+    idKey = String(msg.id);
+    if (pmMessageIds.hasOwnProperty(idKey)) {
+      continue;
+    }
+    pmMessageIds[idKey] = true;
+    pmMessages.push(msg);
     if (msg.id > pmLastId) {
       pmLastId = msg.id;
     }
+  }
+
+  pmMessages.sort(function(left, right) {
+    return left.id - right.id;
+  });
+
+  if (pmMessages.length === 0) {
+    html = '<div class="chat-line"><span class="chat-text">*** Начните переписку...</span></div>';
+  }
+
+  for (i = 0; i < pmMessages.length; i++) {
+    msg = pmMessages[i];
     isMine = msg.from_user_id === pmMyId;
     html += '<div class="chat-line">';
     html += '<span class="chat-time">[' + formatTime(msg.created_at) + ']</span> ';
@@ -135,7 +185,11 @@ function sendPmMessage() {
         input.value = '';
       }
       if (res.message) {
-        renderPmMessages([res.message], false);
+        if (pmInitialLoaded) {
+          renderPmMessages([res.message], false);
+        } else {
+          pmPendingMessages.push(res.message);
+        }
       }
     } else {
       showError(errorBox, (res && res.error) ? res.error : 'Не удалось отправить.');

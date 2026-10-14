@@ -7,7 +7,9 @@ var app = express();
 var PORT = process.env.PORT || 3000;
 var ONLINE_TIMEOUT_MS = 5 * 60 * 1000;
 var SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-var db = new Database(path.join(__dirname, 'chat.db'));
+var db = new Database(process.env.DB_FILE || path.join(__dirname, 'chat.db'));
+var rateLimitBuckets = {};
+var rateLimitChecks = 0;
 
 db.exec(
   'CREATE TABLE IF NOT EXISTS users (' +
@@ -47,7 +49,39 @@ app.use(express.urlencoded({ extended: true, limit: '16kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 function hashPassword(password, salt) {
-  return crypto.createHash('sha256').update(salt + password).digest('hex');
+  return 'scrypt$' + crypto.scryptSync(password, salt, 64).toString('hex');
+}
+
+function verifyPassword(password, user) {
+  var storedHash = user.password_hash || '';
+  var expectedHash;
+  var storedBuffer;
+  var expectedBuffer;
+
+  if (storedHash.indexOf('scrypt$') === 0) {
+    expectedHash = hashPassword(password, user.salt).substring(7);
+    storedHash = storedHash.substring(7);
+  } else {
+    expectedHash = crypto.createHash('sha256').update(user.salt + password).digest('hex');
+  }
+
+  if (!/^[0-9a-f]+$/i.test(storedHash) || storedHash.length !== expectedHash.length) {
+    return false;
+  }
+
+  storedBuffer = Buffer.from(storedHash, 'hex');
+  expectedBuffer = Buffer.from(expectedHash, 'hex');
+  if (!crypto.timingSafeEqual(storedBuffer, expectedBuffer)) {
+    return false;
+  }
+
+  if (user.password_hash.indexOf('scrypt$') !== 0) {
+    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(
+      hashPassword(password, user.salt),
+      user.id
+    );
+  }
+  return true;
 }
 
 function createToken() {
@@ -65,8 +99,55 @@ function touchSession(token) {
 function cleanupSessions() {
   var maxAgeCutoff = new Date(Date.now() - SESSION_MAX_AGE_MS).toISOString();
   db.prepare(
-    'DELETE FROM sessions WHERE last_seen_at < ? OR (last_seen_at IS NULL AND created_at < ?)'
-  ).run(maxAgeCutoff, maxAgeCutoff);
+    'DELETE FROM sessions WHERE created_at < ? OR last_seen_at < ? OR (last_seen_at IS NULL AND created_at < ?)'
+  ).run(maxAgeCutoff, maxAgeCutoff, maxAgeCutoff);
+}
+
+function consumeRateLimit(key, limit, windowMs) {
+  var now = Date.now();
+  var bucket = rateLimitBuckets[key];
+  var bucketKey;
+
+  if (!bucket || bucket.reset_at <= now) {
+    bucket = { count: 0, reset_at: now + windowMs };
+    rateLimitBuckets[key] = bucket;
+  }
+  if (bucket.count >= limit) {
+    return Math.ceil((bucket.reset_at - now) / 1000);
+  }
+
+  bucket.count++;
+  rateLimitChecks++;
+  if (rateLimitChecks % 1000 === 0) {
+    for (bucketKey in rateLimitBuckets) {
+      if (rateLimitBuckets.hasOwnProperty(bucketKey) && rateLimitBuckets[bucketKey].reset_at <= now) {
+        delete rateLimitBuckets[bucketKey];
+      }
+    }
+  }
+  return 0;
+}
+
+function enforceRateLimit(req, res, key, limit, windowMs) {
+  var retryAfter = consumeRateLimit(key, limit, windowMs);
+  if (retryAfter > 0) {
+    res.setHeader('Retry-After', String(retryAfter));
+    sendJson(res, 429, { ok: false, error: 'Слишком много запросов. Попробуйте позже.' });
+    return false;
+  }
+  return true;
+}
+
+function clearRateLimit(key) {
+  delete rateLimitBuckets[key];
+}
+
+function requestIp(req) {
+  return req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
+}
+
+function readString(value) {
+  return typeof value === 'string' ? value : '';
 }
 
 function getOnlineCount() {
@@ -77,14 +158,22 @@ function getOnlineCount() {
 }
 
 function getSession(req) {
-  var token = req.headers['x-session-token'] || req.query.token || '';
+  var token = req.headers['x-session-token'] || '';
+  var cutoff = new Date(Date.now() - SESSION_MAX_AGE_MS).toISOString();
   if (!token) {
     return null;
   }
-  var session = db.prepare('SELECT user_id, username FROM sessions WHERE token = ?').get(token) || null;
-  if (session) {
-    touchSession(token);
+  var session = db.prepare(
+    'SELECT user_id, username, last_seen_at, created_at FROM sessions WHERE token = ?'
+  ).get(token) || null;
+  if (!session) {
+    return null;
   }
+  if (session.created_at < cutoff || (session.last_seen_at || session.created_at) < cutoff) {
+    db.prepare('DELETE FROM sessions WHERE token = ?').run(token);
+    return null;
+  }
+  touchSession(token);
   return session;
 }
 
@@ -109,12 +198,42 @@ function validateUsername(username) {
   return null;
 }
 
+function findUserByUsername(username) {
+  var exact = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+  var users;
+  var normalizedUsername = username.toLowerCase();
+  var i;
+
+  if (exact) {
+    return exact;
+  }
+  users = db.prepare('SELECT * FROM users').all();
+  for (i = 0; i < users.length; i++) {
+    if (users[i].username.toLowerCase() === normalizedUsername) {
+      return users[i];
+    }
+  }
+  return null;
+}
+
+function usernameExists(username) {
+  var users = db.prepare('SELECT username FROM users').all();
+  var normalizedUsername = username.toLowerCase();
+  var i;
+  for (i = 0; i < users.length; i++) {
+    if (users[i].username.toLowerCase() === normalizedUsername) {
+      return true;
+    }
+  }
+  return false;
+}
+
 function validatePassword(password) {
   if (!password || typeof password !== 'string') {
     return 'Введите пароль.';
   }
-  if (password.length < 4 || password.length > 32) {
-    return 'Пароль: от 4 до 32 символов.';
+  if (password.length < 8 || password.length > 32) {
+    return 'Пароль: от 8 до 32 символов.';
   }
   return null;
 }
@@ -125,7 +244,7 @@ function generateUniquePin() {
   var attempts = 0;
 
   do {
-    pin = String(Math.floor(10000000 + Math.random() * 90000000));
+    pin = String(crypto.randomInt(10000000, 100000000));
     exists = db.prepare('SELECT id FROM users WHERE pin = ?').get(pin);
     attempts++;
   } while (exists && attempts < 100);
@@ -349,6 +468,12 @@ try {
   /* exists */
 }
 
+db.exec(
+  'CREATE INDEX IF NOT EXISTS idx_private_messages_sender_pair_id ON private_messages (from_user_id, to_user_id, id);' +
+  'CREATE INDEX IF NOT EXISTS idx_private_messages_recipient_pair_id ON private_messages (to_user_id, from_user_id, id);' +
+  'CREATE INDEX IF NOT EXISTS idx_private_messages_unread ON private_messages (to_user_id, is_read);'
+);
+
 function formatChatMessage(row) {
   var msg = {
     id: row.id,
@@ -377,8 +502,12 @@ var CHAT_MESSAGE_SELECT =
 ensureUserPins();
 
 app.post('/api/register', function(req, res) {
-  var username = (req.body.username || '').replace(/^\s+|\s+$/g, '');
-  var password = req.body.password || '';
+  var body = req.body || {};
+  var username = readString(body.username).replace(/^\s+|\s+$/g, '');
+  var password = readString(body.password);
+  if (!enforceRateLimit(req, res, 'register:' + requestIp(req), 5, 60 * 60 * 1000)) {
+    return;
+  }
   var usernameError = validateUsername(username);
   var passwordError = validatePassword(password);
 
@@ -391,8 +520,7 @@ app.post('/api/register', function(req, res) {
     return;
   }
 
-  var existing = db.prepare('SELECT id FROM users WHERE LOWER(username) = LOWER(?)').get(username);
-  if (existing) {
+  if (usernameExists(username)) {
     sendJson(res, 409, { ok: false, error: 'Такое имя уже занято.' });
     return;
   }
@@ -422,22 +550,32 @@ app.post('/api/register', function(req, res) {
 });
 
 app.post('/api/login', function(req, res) {
-  var username = (req.body.username || '').replace(/^\s+|\s+$/g, '');
-  var password = req.body.password || '';
+  var body = req.body || {};
+  var username = readString(body.username).replace(/^\s+|\s+$/g, '');
+  var password = readString(body.password);
+  var ip = requestIp(req);
+  var ipLimitKey = 'login-ip:' + ip;
+  var accountLimitKey = 'login-account:' + ip + ':' + username.toLowerCase();
+
+  if (!enforceRateLimit(req, res, ipLimitKey, 60, 15 * 60 * 1000)) {
+    return;
+  }
+  if (username && !enforceRateLimit(req, res, accountLimitKey, 10, 15 * 60 * 1000)) {
+    return;
+  }
 
   if (!username || !password) {
     sendJson(res, 400, { ok: false, error: 'Заполните все поля.' });
     return;
   }
 
-  var user = db.prepare('SELECT * FROM users WHERE LOWER(username) = LOWER(?)').get(username);
+  var user = findUserByUsername(username);
   if (!user) {
     sendJson(res, 401, { ok: false, error: 'Неверное имя или пароль.' });
     return;
   }
 
-  var passwordHash = hashPassword(password, user.salt);
-  if (passwordHash !== user.password_hash) {
+  if (!verifyPassword(password, user)) {
     sendJson(res, 401, { ok: false, error: 'Неверное имя или пароль.' });
     return;
   }
@@ -454,6 +592,7 @@ app.post('/api/login', function(req, res) {
     now
   );
 
+  clearRateLimit(accountLimitKey);
   sendJson(res, 200, { ok: true, token: token, username: user.username });
 });
 
@@ -496,8 +635,16 @@ app.put('/api/profile', function(req, res) {
     return;
   }
 
-  var status = (req.body.status || '').replace(/^\s+|\s+$/g, '');
-  var about = (req.body.about || '').replace(/^\s+|\s+$/g, '');
+  var body = req.body || {};
+  if (
+    (typeof body.status !== 'undefined' && typeof body.status !== 'string') ||
+    (typeof body.about !== 'undefined' && typeof body.about !== 'string')
+  ) {
+    sendJson(res, 400, { ok: false, error: 'Статус и описание должны быть текстом.' });
+    return;
+  }
+  var status = readString(body.status).replace(/^\s+|\s+$/g, '');
+  var about = readString(body.about).replace(/^\s+|\s+$/g, '');
 
   if (status.length > 64) {
     sendJson(res, 400, { ok: false, error: 'Статус: максимум 64 символа.' });
@@ -548,6 +695,10 @@ app.get('/api/profile/pin/:pin', function(req, res) {
   var session = getSession(req);
   if (!session) {
     sendJson(res, 401, { ok: false, error: 'Не авторизован.' });
+    return;
+  }
+
+  if (!enforceRateLimit(req, res, 'pin-search:' + requestIp(req), 30, 60 * 1000)) {
     return;
   }
 
@@ -608,7 +759,8 @@ app.post('/api/friends', function(req, res) {
     return;
   }
 
-  var pin = String(req.body.pin || '').replace(/\D/g, '');
+  var body = req.body || {};
+  var pin = String(body.pin || '').replace(/\D/g, '');
   if (pin.length !== 8) {
     sendJson(res, 400, { ok: false, error: 'PIN должен содержать 8 цифр.' });
     return;
@@ -877,8 +1029,9 @@ app.post('/api/pm', function(req, res) {
     return;
   }
 
-  var toUserId = parseInt(req.body.to_user_id, 10);
-  var content = (req.body.content || '').replace(/^\s+|\s+$/g, '');
+  var body = req.body || {};
+  var toUserId = parseInt(body.to_user_id, 10);
+  var content = readString(body.content).replace(/^\s+|\s+$/g, '');
 
   if (isNaN(toUserId)) {
     sendJson(res, 400, { ok: false, error: 'Неверный получатель.' });
@@ -894,6 +1047,10 @@ app.post('/api/pm', function(req, res) {
   }
   if (!areFriends(session.user_id, toUserId)) {
     sendJson(res, 403, { ok: false, error: 'Личные сообщения только с друзьями.' });
+    return;
+  }
+
+  if (!enforceRateLimit(req, res, 'pm-send:' + session.user_id, 30, 60 * 1000)) {
     return;
   }
 
@@ -961,7 +1118,8 @@ app.post('/api/messages', function(req, res) {
     return;
   }
 
-  var content = (req.body.content || '').replace(/^\s+|\s+$/g, '');
+  var body = req.body || {};
+  var content = readString(body.content).replace(/^\s+|\s+$/g, '');
   if (!content) {
     sendJson(res, 400, { ok: false, error: 'Сообщение пустое.' });
     return;
@@ -971,7 +1129,11 @@ app.post('/api/messages', function(req, res) {
     return;
   }
 
-  var replyToId = parseInt(req.body.reply_to_id, 10);
+  if (!enforceRateLimit(req, res, 'chat-send:' + session.user_id, 30, 60 * 1000)) {
+    return;
+  }
+
+  var replyToId = parseInt(body.reply_to_id, 10);
   var parent = null;
   if (!isNaN(replyToId) && replyToId > 0) {
     parent = db.prepare('SELECT id, username, content FROM messages WHERE id = ?').get(replyToId);
@@ -1012,10 +1174,6 @@ app.post('/api/messages', function(req, res) {
 });
 
 app.get('/api/stats', function(req, res) {
-  var token = req.headers['x-session-token'] || '';
-  if (token) {
-    touchSession(token);
-  }
   cleanupSessions();
 
   var usersCount = db.prepare('SELECT COUNT(*) AS count FROM users').get().count;
@@ -1029,5 +1187,5 @@ app.get('/api/stats', function(req, res) {
 });
 
 app.listen(PORT, function() {
-  console.log('Retro Chat запущен: http://localhost:' + PORT);
+  console.log('Tigrulya2000 запущен: http://localhost:' + PORT);
 });

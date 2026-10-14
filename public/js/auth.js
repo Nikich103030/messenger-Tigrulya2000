@@ -10,9 +10,7 @@ function initLoginPage() {
     });
   }
 
-  if (form && form.attachEvent) {
-    form.attachEvent('onsubmit', handleLogin);
-  } else if (form) {
+  if (form) {
     form.onsubmit = handleLogin;
   }
 
@@ -40,9 +38,7 @@ function initRegisterPage() {
   var errorBox = $('error-box');
   var okBox = $('ok-box');
 
-  if (form && form.attachEvent) {
-    form.attachEvent('onsubmit', handleRegister);
-  } else if (form) {
+  if (form) {
     form.onsubmit = handleRegister;
   }
 

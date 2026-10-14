@@ -95,19 +95,19 @@ var THEME_PRESETS = {
     nav_sep_color: '#e8b4b8'
   },
   aero: {
-    header_bg: '#0a4d8c',
-    header_title: '#e0f7ff',
-    header_subtitle: '#88cce8',
-    body_bg: '#b8d4e8',
-    nav_bg: '#9ec5e0',
-    win_title_bg: '#1565a8',
+    header_bg: '#0032db',
+    header_title: '#ffffff',
+    header_subtitle: '#d6f6ff',
+    body_bg: '#bdeaf2',
+    nav_bg: '#dff8fa',
+    win_title_bg: '#0078c8',
     win_title_fg: '#ffffff',
-    panel_bg: '#eef6fc',
-    link_color: '#005a9e',
-    chat_bg: '#071018',
-    chat_text: '#5ce1ff',
-    chat_user: '#00bfff',
-    user_badge_bg: '#2070b8'
+    panel_bg: '#e8f8ed',
+    link_color: '#0066cc',
+    chat_bg: '#003b67',
+    chat_text: '#dbfff5',
+    chat_user: '#b4ff64',
+    user_badge_bg: '#3b8d24'
   }
 };
 
@@ -115,6 +115,12 @@ function isBordelloTheme(theme) {
   var b = THEME_PRESETS.bordello;
   var t = mergeTheme(theme);
   return t.header_bg === b.header_bg && t.nav_bg === b.nav_bg;
+}
+
+function isAeroTheme(theme) {
+  var aero = THEME_PRESETS.aero;
+  var t = mergeTheme(theme);
+  return t.header_bg === aero.header_bg && t.body_bg === aero.body_bg && t.user_badge_bg === aero.user_badge_bg;
 }
 
 function mergeTheme(theme) {
@@ -152,6 +158,16 @@ function buildThemeCss(theme) {
   css += '.sidebar-panel h3 { color: ' + t.win_title_bg + ' !important; }';
   css += '.profile-card-name { color: ' + t.win_title_bg + ' !important; }';
   css += '.friend-name { color: ' + t.win_title_bg + ' !important; }';
+
+  if (isAeroTheme(theme)) {
+    css += 'body { background-image: linear-gradient(180deg, #8cdbff 0%, #eafaff 54%, #9ccb52 100%) !important; background-attachment: fixed; }';
+    css += '.header-box { background-image: linear-gradient(180deg, #72ddff 0%, #1765e8 48%, #0032db 100%) !important; border-color: #d8fcff; }';
+    css += '.nav-bar { background-image: linear-gradient(180deg, #ffffff 0%, #dff8fa 55%, #a7e4ed 100%) !important; border-color: #ffffff; }';
+    css += '.win-panel, .sidebar-panel { background-color: #e8f8ed !important; background-color: rgba(239, 253, 248, 0.88) !important; background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(221, 248, 235, 0.88) 100%) !important; border-color: #ffffff; }';
+    css += '.win-title { background-image: linear-gradient(180deg, #45b8ed 0%, #0078c8 55%, #00539e 100%) !important; }';
+    css += '.chat-log { background-image: linear-gradient(180deg, #002d58 0%, #00627c 100%) !important; border-color: #a8eaff; }';
+    css += '.user-badge { background-image: linear-gradient(180deg, #8dcf45 0%, #3b8d24 55%, #287018 100%) !important; border: 1px solid #d9ffc0; }';
+  }
 
   return css;
 }

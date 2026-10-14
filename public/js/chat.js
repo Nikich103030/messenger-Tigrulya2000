@@ -1,7 +1,12 @@
 var lastMessageId = 0;
 var pollTimer = null;
+var statsTimer = null;
+var pollInFlight = false;
+var initialMessagesLoaded = false;
 var replyingTo = null;
 var messageCache = {};
+var chatMessages = [];
+var chatMessageIds = {};
 
 function initChatPage() {
   requireAuth(function(profile) {
@@ -11,7 +16,7 @@ function initChatPage() {
     }
     loadInitialMessages();
     startPolling();
-    loadStats();
+    startStatsPolling();
     bindChatForm();
     bindLogout();
     bindReplyCancel();
@@ -21,9 +26,7 @@ function initChatPage() {
 
 function bindChatForm() {
   var form = $('chat-form');
-  if (form && form.attachEvent) {
-    form.attachEvent('onsubmit', sendMessage);
-  } else if (form) {
+  if (form) {
     form.onsubmit = sendMessage;
   }
 }
@@ -33,11 +36,7 @@ function bindLogout() {
   if (!btn) {
     return;
   }
-  if (btn.attachEvent) {
-    btn.attachEvent('onclick', doLogout);
-  } else {
-    btn.onclick = doLogout;
-  }
+  btn.onclick = doLogout;
 }
 
 function bindReplyCancel() {
@@ -116,6 +115,7 @@ function loadInitialMessages() {
     if (res && res.ok && res.messages) {
       renderMessages(res.messages, true);
     }
+    initialMessagesLoaded = true;
   });
 }
 
@@ -126,14 +126,27 @@ function startPolling() {
   pollTimer = window.setInterval(pollMessages, 1000);
 }
 
+function startStatsPolling() {
+  if (statsTimer) {
+    window.clearInterval(statsTimer);
+  }
+  loadStats();
+  statsTimer = window.setInterval(loadStats, 30000);
+}
+
 function pollMessages() {
+  if (!initialMessagesLoaded || pollInFlight) {
+    return;
+  }
+
   var url = '/api/messages?since=' + lastMessageId;
+  pollInFlight = true;
   apiRequest('GET', url, null, function(res) {
     if (res && res.ok && res.messages && res.messages.length > 0) {
       renderMessages(res.messages, false);
     }
+    pollInFlight = false;
   });
-  loadStats();
 }
 
 function loadStats() {
@@ -189,21 +202,36 @@ function renderMessages(messages, replace) {
     return;
   }
 
-  var html = replace ? '' : log.innerHTML;
+  var html = '';
   var i;
+  var idKey;
 
   if (replace) {
     messageCache = {};
+    chatMessages = [];
+    chatMessageIds = {};
+    lastMessageId = 0;
   }
 
   for (i = 0; i < messages.length; i++) {
     var msg = messages[i];
+    idKey = String(msg.id);
+    if (chatMessageIds.hasOwnProperty(idKey)) {
+      continue;
+    }
+    chatMessageIds[idKey] = true;
+    chatMessages.push(msg);
     if (msg.id > lastMessageId) {
       lastMessageId = msg.id;
     }
-    html += renderMessageLine(msg);
   }
 
+  chatMessages.sort(function(left, right) {
+    return left.id - right.id;
+  });
+  for (i = 0; i < chatMessages.length; i++) {
+    html += renderMessageLine(chatMessages[i]);
+  }
   log.innerHTML = html;
   log.scrollTop = log.scrollHeight;
 }

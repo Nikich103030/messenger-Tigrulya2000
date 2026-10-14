@@ -60,21 +60,224 @@ function parseJSON(text) {
   if (window.JSON && window.JSON.parse) {
     return window.JSON.parse(text);
   }
-  return eval('(' + text + ')');
+
+  var source = String(text);
+  var position = 0;
+
+  function skipWhitespace() {
+    while (position < source.length && /[ \t\r\n]/.test(source.charAt(position))) {
+      position++;
+    }
+  }
+
+  function parseString() {
+    var result = '';
+    var character;
+    var escapeCharacter;
+    var hex;
+    var code;
+
+    if (source.charAt(position) !== '"') {
+      throw new Error('Invalid JSON string.');
+    }
+    position++;
+
+    while (position < source.length) {
+      character = source.charAt(position++);
+      if (character === '"') {
+        return result;
+      }
+      if (character.charCodeAt(0) < 32) {
+        throw new Error('Invalid JSON string.');
+      }
+      if (character !== '\\') {
+        result += character;
+        continue;
+      }
+
+      if (position >= source.length) {
+        throw new Error('Invalid JSON escape.');
+      }
+      escapeCharacter = source.charAt(position++);
+      if (escapeCharacter === '"' || escapeCharacter === '\\' || escapeCharacter === '/') {
+        result += escapeCharacter;
+      } else if (escapeCharacter === 'b') {
+        result += '\b';
+      } else if (escapeCharacter === 'f') {
+        result += '\f';
+      } else if (escapeCharacter === 'n') {
+        result += '\n';
+      } else if (escapeCharacter === 'r') {
+        result += '\r';
+      } else if (escapeCharacter === 't') {
+        result += '\t';
+      } else if (escapeCharacter === 'u') {
+        hex = source.substr(position, 4);
+        if (!/^[0-9a-fA-F]{4}$/.test(hex)) {
+          throw new Error('Invalid JSON unicode escape.');
+        }
+        code = parseInt(hex, 16);
+        result += String.fromCharCode(code);
+        position += 4;
+      } else {
+        throw new Error('Invalid JSON escape.');
+      }
+    }
+
+    throw new Error('Unterminated JSON string.');
+  }
+
+  function parseArray() {
+    var result = [];
+    position++;
+    skipWhitespace();
+    if (source.charAt(position) === ']') {
+      position++;
+      return result;
+    }
+
+    while (position < source.length) {
+      result.push(parseValue());
+      skipWhitespace();
+      if (source.charAt(position) === ']') {
+        position++;
+        return result;
+      }
+      if (source.charAt(position) !== ',') {
+        throw new Error('Invalid JSON array.');
+      }
+      position++;
+      skipWhitespace();
+    }
+
+    throw new Error('Unterminated JSON array.');
+  }
+
+  function parseObject() {
+    var result = {};
+    var key;
+    position++;
+    skipWhitespace();
+    if (source.charAt(position) === '}') {
+      position++;
+      return result;
+    }
+
+    while (position < source.length) {
+      key = parseString();
+      if (key === '__proto__') {
+        throw new Error('Invalid JSON object key.');
+      }
+      skipWhitespace();
+      if (source.charAt(position) !== ':') {
+        throw new Error('Invalid JSON object.');
+      }
+      position++;
+      result[key] = parseValue();
+      skipWhitespace();
+      if (source.charAt(position) === '}') {
+        position++;
+        return result;
+      }
+      if (source.charAt(position) !== ',') {
+        throw new Error('Invalid JSON object.');
+      }
+      position++;
+      skipWhitespace();
+    }
+
+    throw new Error('Unterminated JSON object.');
+  }
+
+  function parseValue() {
+    var character;
+    var numberMatch;
+
+    skipWhitespace();
+    character = source.charAt(position);
+    if (character === '"') {
+      return parseString();
+    }
+    if (character === '{') {
+      return parseObject();
+    }
+    if (character === '[') {
+      return parseArray();
+    }
+    if (source.substr(position, 4) === 'true') {
+      position += 4;
+      return true;
+    }
+    if (source.substr(position, 5) === 'false') {
+      position += 5;
+      return false;
+    }
+    if (source.substr(position, 4) === 'null') {
+      position += 4;
+      return null;
+    }
+
+    numberMatch = source.substring(position).match(/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+\-]?[0-9]+)?/);
+    if (numberMatch) {
+      position += numberMatch[0].length;
+      return Number(numberMatch[0]);
+    }
+    throw new Error('Invalid JSON value.');
+  }
+
+  var result = parseValue();
+  skipWhitespace();
+  if (position !== source.length) {
+    throw new Error('Unexpected data after JSON value.');
+  }
+  return result;
 }
 
 function jsonStringify(obj) {
   if (window.JSON && window.JSON.stringify) {
     return window.JSON.stringify(obj);
   }
+  return stringifyJsonValue(obj);
+}
+
+function stringifyJsonValue(value) {
+  var valueType = typeof value;
   var parts = [];
   var key;
-  for (key in obj) {
-    if (obj.hasOwnProperty(key)) {
-      parts.push('"' + escapeJson(key) + '":"' + escapeJson(obj[key]) + '"');
-    }
+  var item;
+  var i;
+
+  if (value === null) {
+    return 'null';
   }
-  return '{' + parts.join(',') + '}';
+  if (valueType === 'string') {
+    return '"' + escapeJson(value) + '"';
+  }
+  if (valueType === 'number') {
+    return isFinite(value) ? String(value) : 'null';
+  }
+  if (valueType === 'boolean') {
+    return value ? 'true' : 'false';
+  }
+  if (Object.prototype.toString.call(value) === '[object Array]') {
+    for (i = 0; i < value.length; i++) {
+      item = stringifyJsonValue(value[i]);
+      parts.push(typeof item === 'undefined' ? 'null' : item);
+    }
+    return '[' + parts.join(',') + ']';
+  }
+  if (valueType === 'object') {
+    for (key in value) {
+      if (Object.prototype.hasOwnProperty.call(value, key)) {
+        item = stringifyJsonValue(value[key]);
+        if (typeof item !== 'undefined') {
+          parts.push('"' + escapeJson(key) + '":' + item);
+        }
+      }
+    }
+    return '{' + parts.join(',') + '}';
+  }
+  return undefined;
 }
 
 function apiRequest(method, url, data, callback) {
@@ -112,14 +315,31 @@ function apiRequest(method, url, data, callback) {
 }
 
 function escapeJson(str) {
-  if (!str) {
-    return '';
-  }
   return String(str)
-    .replace(/\\/g, '\\\\')
-    .replace(/"/g, '\\"')
-    .replace(/\n/g, '\\n')
-    .replace(/\r/g, '\\r');
+    .replace(/[\\"\u0000-\u001f]/g, function(character) {
+      if (character === '"') {
+        return '\\"';
+      }
+      if (character === '\\') {
+        return '\\\\';
+      }
+      if (character === '\b') {
+        return '\\b';
+      }
+      if (character === '\f') {
+        return '\\f';
+      }
+      if (character === '\n') {
+        return '\\n';
+      }
+      if (character === '\r') {
+        return '\\r';
+      }
+      if (character === '\t') {
+        return '\\t';
+      }
+      return '\\u00' + ('0' + character.charCodeAt(0).toString(16)).slice(-2);
+    });
 }
 
 function escapeHtml(text) {
@@ -177,7 +397,38 @@ function formatTime(iso) {
   if (!iso) {
     return '--:--';
   }
-  var d = new Date(iso);
+  var parts = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|([+\-])(\d{2}):(\d{2}))?$/);
+  var milliseconds = '';
+  var timestamp;
+  var offset;
+  var d;
+
+  if (parts) {
+    milliseconds = (parts[7] || '').substring(0, 3);
+    while (milliseconds.length < 3) {
+      milliseconds += '0';
+    }
+    timestamp = Date.UTC(
+      parseInt(parts[1], 10),
+      parseInt(parts[2], 10) - 1,
+      parseInt(parts[3], 10),
+      parseInt(parts[4], 10),
+      parseInt(parts[5], 10),
+      parseInt(parts[6], 10),
+      parseInt(milliseconds || '0', 10)
+    );
+    if (parts[8] && parts[8] !== 'Z') {
+      offset = (parseInt(parts[10], 10) * 60 + parseInt(parts[11], 10)) * 60000;
+      timestamp += parts[9] === '+' ? -offset : offset;
+    }
+    d = new Date(timestamp);
+  } else {
+    d = new Date(iso);
+  }
+
+  if (isNaN(d.getTime())) {
+    return '--:--';
+  }
   var h = d.getHours();
   var m = d.getMinutes();
   var s = d.getSeconds();
@@ -208,22 +459,14 @@ function bindClick(el, handler) {
   if (!el) {
     return;
   }
-  if (el.attachEvent) {
-    el.attachEvent('onclick', handler);
-  } else {
-    el.onclick = handler;
-  }
+  el.onclick = handler;
 }
 
 function bindSubmit(form, handler) {
   if (!form) {
     return;
   }
-  if (form.attachEvent) {
-    form.attachEvent('onsubmit', handler);
-  } else {
-    form.onsubmit = handler;
-  }
+  form.onsubmit = handler;
 }
 
 function getQueryParam(name) {

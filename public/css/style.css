@@ -1,4 +1,4 @@
-/* Retro Web 2000 — совместимость с IE5/6+ */
+/* Tigrulya2000 — совместимость с IE5/6+ */
 html,
 body {
   margin: 0;
@@ -428,10 +428,6 @@ input.text-field.chat-input-field {
   border-bottom: 1px dotted #808080;
   padding: 6px 0;
   word-wrap: break-word;
-}
-
-.friend-item:last-child {
-  border-bottom: none;
 }
 
 .friend-name {
