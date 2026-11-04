@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      PORT: 3000
+      DB_FILE: /data/chat.db
+    volumes:
+      - chat-data:/data
+
+volumes:
+  chat-data:
