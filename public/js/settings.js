@@ -1,6 +1,6 @@
 var THEME_FIELDS = [
   { key: 'header_bg', label: 'Шапка (фон)', hint: 'Фон блока с Tigrulya2000' },
-  { key: 'header_title', label: 'Заголовок (цвет)', hint: 'Цвет текста «★ Tigrulya2000 ★»' },
+  { key: 'header_title', label: 'Заголовок (цвет)', hint: 'Цвет текста «* Tigrulya2000 *»' },
   { key: 'header_subtitle', label: 'Подзаголовок', hint: 'Цвет подписи под заголовком' },
   { key: 'body_bg', label: 'Фон страницы', hint: 'Общий фон сайта' },
   { key: 'nav_bg', label: 'Меню', hint: 'Фон панели навигации' },
