@@ -46,10 +46,14 @@ function getToken() {
   return token;
 }
 
-function setToken(token) {
-  var expires = new Date();
-  expires.setTime(expires.getTime() + 7 * 24 * 60 * 60 * 1000);
-  document.cookie = 'retro_token=' + escape(token) + '; expires=' + expires.toUTCString() + '; path=/';
+function setToken(token, remember) {
+  var cookie = 'retro_token=' + escape(token) + '; path=/';
+  if (remember !== false) {
+    var expires = new Date();
+    expires.setTime(expires.getTime() + 7 * 24 * 60 * 60 * 1000);
+    cookie += '; expires=' + expires.toUTCString();
+  }
+  document.cookie = cookie;
 }
 
 function clearToken() {

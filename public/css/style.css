@@ -130,6 +130,11 @@ textarea {
   width: 220px;
 }
 
+#remember-me {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 textarea {
   width: 100%;
   height: 60px;
@@ -571,6 +576,11 @@ input.text-field.chat-input-field {
   .form-table td {
     display: block;
     width: 100%;
+  }
+
+  .form-table .remember-spacer,
+  .form-table .submit-spacer {
+    display: none;
   }
 
   .form-table .label {

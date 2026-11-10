@@ -2,14 +2,6 @@ function initLoginPage() {
   var form = $('login-form');
   var errorBox = $('error-box');
 
-  if (getToken()) {
-    apiRequest('GET', '/api/me', null, function(res) {
-      if (res && res.ok) {
-        window.location.href = 'chat.html';
-      }
-    });
-  }
-
   if (form) {
     form.onsubmit = handleLogin;
   }
@@ -17,12 +9,13 @@ function initLoginPage() {
   function handleLogin() {
     var username = $('username') ? $('username').value : '';
     var password = $('password') ? $('password').value : '';
+    var remember = $('remember-me');
 
     showError(errorBox, '');
 
     apiRequest('POST', '/api/login', { username: username, password: password }, function(res) {
       if (res && res.ok) {
-        setToken(res.token);
+        setToken(res.token, remember && remember.checked);
         window.location.href = 'chat.html';
       } else {
         showError(errorBox, (res && res.error) ? res.error : 'Ошибка входа.');
